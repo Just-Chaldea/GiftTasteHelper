@@ -44,7 +44,6 @@ namespace GiftTasteHelper
             helper.Events.GameLoop.DayStarted += this.OnDayStarted;
 
             InitDebugCommands(this.Helper);
-
             Startup();
         }
 
@@ -124,16 +123,14 @@ namespace GiftTasteHelper
                         StoredGiftDatabase.MigrateDatabase(helper, oldPath, ref dbRef);
                     }
                 }
-
-                dataProvider = new ProgressionGiftDataProvider(GiftDatabase);
-                helper.Events.Input.ButtonPressed += CheckGift_OnButtonPressed;
             }
             else
             {
                 GiftDatabase = new GiftDatabase(helper);
-                dataProvider = new AllGiftDataProvider(GiftDatabase);
-                helper.Events.Input.ButtonPressed -= CheckGift_OnButtonPressed;
             }
+
+            dataProvider = new AllGiftDataProvider(GiftDatabase);
+            helper.Events.Input.ButtonPressed -= CheckGift_OnButtonPressed;
 
             // Add the helpers if they're enabled in config
             CurrentGiftHelper = null;
@@ -155,7 +152,7 @@ namespace GiftTasteHelper
         // Gift Monitor Handling
         // ===================================================================
 
-        private void OnGiftGiven(string npc, int itemId)
+        private void OnGiftGiven(string npc, string itemId)
         {
             var taste = Utils.GetTasteForGift(npc, itemId);
             if (taste != GiftTaste.MAX)
@@ -227,6 +224,16 @@ namespace GiftTasteHelper
             }
             this.WasResized = false;
 
+            // close SocialPageGiftHelper if profile menu is opened
+            if (newMenuType == typeof(ProfileMenu) && this.CurrentGiftHelper != null && this.CurrentGiftHelper is SocialPageGiftHelper)
+            {
+                Utils.DebugLog("Closing current helper: " + this.CurrentGiftHelper.GetType());
+                UnsubscribeEvents();
+                this.CurrentGiftHelper.OnClose();
+                return;
+            }
+
+
             if (this.GiftHelpers.ContainsKey(newMenuType))
             {
                 // Close the current gift helper
@@ -242,14 +249,14 @@ namespace GiftTasteHelper
                 this.CurrentGiftHelper = this.GiftHelpers[newMenuType];
                 if (!this.CurrentGiftHelper.IsInitialized)
                 {
-                    Utils.DebugLog("[OnClickableMenuChanged initialized helper: " + this.CurrentGiftHelper.GetType());
+                    Utils.DebugLog("[OnClickableMenuChanged] initialized helper: " + this.CurrentGiftHelper.GetType());
 
                     this.CurrentGiftHelper.Init(e.NewMenu);
                 }
 
                 if (this.CurrentGiftHelper.OnOpen(e.NewMenu))
                 {
-                    Utils.DebugLog("[OnClickableMenuChanged Successfully opened helper: " + this.CurrentGiftHelper.GetType());
+                    Utils.DebugLog("[OnClickableMenuChanged] Successfully opened helper: " + this.CurrentGiftHelper.GetType());
 
                     // Only subscribe to the events if it opened successfully
                     SubscribeEvents();
@@ -274,7 +281,7 @@ namespace GiftTasteHelper
         /// <summary>Raised after the game draws to the sprite patch in a draw tick, just before the final sprite batch is rendered to the screen.</summary>
         /// <param name="sender">The event sender.</param>
         /// <param name="e">The event data.</param>
-        private void OnRendered(object sender, RenderedEventArgs e)
+        private void OnRendered(object sender, RenderedActiveMenuEventArgs e)
         {
             Debug.Assert(this.CurrentGiftHelper != null, "OnPostRenderEvent listener invoked when currentGiftHelper is null.");
 
@@ -297,14 +304,14 @@ namespace GiftTasteHelper
         private void UnsubscribeEvents()
         {
             Helper.Events.Input.CursorMoved -= OnCursorMoved;
-            Helper.Events.Display.Rendered -= this.OnRendered;
+            Helper.Events.Display.RenderedActiveMenu -= this.OnRendered;
             Helper.Events.GameLoop.UpdateTicked -= OnUpdateTicked;
         }
 
         private void SubscribeEvents()
         {
             Helper.Events.Input.CursorMoved += OnCursorMoved;
-            Helper.Events.Display.Rendered += this.OnRendered;
+            Helper.Events.Display.RenderedActiveMenu += this.OnRendered;
 
             if (this.CurrentGiftHelper.WantsUpdateEvent())
             {
@@ -371,7 +378,7 @@ namespace GiftTasteHelper
                 }
                 Game1.warpFarmer(location, x / Game1.tileSize, y / Game1.tileSize, false);
             });
-
+            /*
             helper.ConsoleCommands.Add("setup", "", (name, args) =>
             {
                 helper.ConsoleCommands.Trigger("world_settime", new string[] { "1000" });
@@ -382,6 +389,7 @@ namespace GiftTasteHelper
                     helper.ConsoleCommands.Trigger("player_add", new string[] { "Object", item.ToString(), "10" });
                 }
             });
+            */
 #endif
         }
         #endregion
